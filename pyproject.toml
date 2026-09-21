@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cycleaccord"
+version = "0.1.0"
+description = "依赖环协商器：发现依赖环、生成并协商破环候选变更集"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+include = ["cycleaccord*"]
+
+[tool.setuptools.package-data]
+cycleaccord = ["static/*"]
