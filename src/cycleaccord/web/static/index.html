@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>依赖环协商器</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>依赖环协商器</h1>
+  <div class="topmeta">
+    <span id="versionBadge" class="badge">图版本：-</span>
+    <span id="staleBadge" class="badge badge-warn hidden">该分析基于旧图版本，批准仅作历史</span>
+    <input id="person" class="person-input" placeholder="你的名字（负责人）" />
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel panel-left">
+    <h2>分析视图</h2>
+    <div id="typeFilters" class="type-filters"></div>
+    <div class="row">
+      <button id="btnAnalyze" class="primary">生成/刷新分析</button>
+    </div>
+    <div id="sccList" class="scc-list"></div>
+
+    <h2>导入图</h2>
+    <p class="hint">提交后若内容变化会生成新<strong>图版本</strong>；旧分析的批准自动变为历史。</p>
+    <textarea id="importArea" class="import-area" spellcheck="false"
+      placeholder='{"components":[...],"edges":[...],"interfaces":[...]}'></textarea>
+    <div class="row">
+      <button id="btnImport">导入新版本</button>
+      <span id="importMsg" class="msg"></span>
+    </div>
+
+    <h2>历史</h2>
+    <button id="btnHistory">查看版本与意见历史</button>
+    <pre id="historyBox" class="history-box hidden"></pre>
+  </section>
+
+  <section class="panel panel-center">
+    <div class="graph-toolbar">
+      <span id="graphTitle" class="graph-title">当前强连通分量</span>
+      <label class="toggle"><input type="checkbox" id="toggleReach" /> 高亮选中后仍可达</label>
+      <label class="toggle"><input type="checkbox" id="togglePaths" checked /> 高亮被切断环路/路径</label>
+    </div>
+    <div id="graphCanvas" class="graph-canvas"></div>
+    <div id="legend" class="legend"></div>
+  </section>
+
+  <section class="panel panel-right">
+    <h2>候选变更集</h2>
+    <div id="diagBox" class="diag"></div>
+    <div id="candidateList" class="candidate-list"></div>
+
+    <div id="candidateDetail" class="candidate-detail hidden">
+      <h3>候选说明</h3>
+      <div id="candRationale" class="rationale"></div>
+      <div><strong>机器校验：</strong><span id="candVerify"></span></div>
+      <div><strong>需要确认：</strong><span id="candOwners"></span></div>
+      <div><strong>被切断环路：</strong>
+        <ul id="candBroken"></ul>
+      </div>
+      <div><strong>影响路径：</strong>
+        <ul id="candPaths"></ul>
+      </div>
+      <div><strong>原子边操作（可机器校验）：</strong>
+        <pre id="candOps" class="ops-box"></pre>
+      </div>
+
+      <h3>负责人意见</h3>
+      <div id="opinionList" class="opinion-list"></div>
+      <div class="opinion-actions">
+        <button id="btnAccept" class="accept">接受</button>
+        <button id="btnReject" class="reject">拒绝</button>
+      </div>
+      <textarea id="opinionComment" class="comment" placeholder="意见说明（可选）"></textarea>
+
+      <h3>提出替代边</h3>
+      <p class="hint">给出一组原子边操作，系统应用到图副本校验是否无环；系统不会替你发明接口。</p>
+      <textarea id="alternateOps" class="ops-input" spellcheck="false"
+        placeholder='[{"kind":"remove","edge_id":"..."},{"kind":"add","src":"A","target":"B","type":"runtime"}]'></textarea>
+      <button id="btnAlternate" class="alternate">提交替代方案</button>
+
+      <h3>最终选择</h3>
+      <button id="btnSelect" class="primary">批准并最终选择该候选</button>
+      <div id="selectionBox" class="selection-box"></div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

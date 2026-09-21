@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: cycleaccord
+Version: 0.1.0
+Summary: 依赖环协商器：找出强连通分量，协商打破全部环的候选变更集
+Requires-Python: >=3.9
+Provides-Extra: test
+Requires-Dist: pytest>=7; extra == "test"
+Dynamic: requires-python
