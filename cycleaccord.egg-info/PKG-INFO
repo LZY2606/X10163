@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: cycleaccord
+Version: 0.1.0
+Summary: 依赖环协商器: dependency-cycle negotiation tool
+Requires-Python: >=3.9
+Provides-Extra: test

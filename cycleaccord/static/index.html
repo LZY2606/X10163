@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>依赖环协商器</title>
+<style>
+  :root { --hard:#d6336c; --runtime:#e8890c; --test:#1971c2; --generated:#868e96; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+         background:#f4f5f7; color:#212529; }
+  header { background:#1c2541; color:#fff; padding:12px 20px; display:flex;
+           align-items:baseline; gap:16px; }
+  header h1 { font-size:20px; margin:0; }
+  header .meta { font-size:12px; opacity:.8; }
+  main { display:flex; gap:12px; padding:12px; align-items:flex-start; }
+  .panel { background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:12px; }
+  #graph-panel { flex:1.4; min-width:520px; }
+  #side { flex:1; display:flex; flex-direction:column; gap:12px; min-width:380px; }
+  .types label { margin-right:12px; font-size:13px; cursor:pointer; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; }
+  .cand { border:1px solid #dee2e6; border-radius:6px; padding:8px; margin-bottom:8px;
+          cursor:pointer; font-size:13px; }
+  .cand.sel { border-color:#1c2541; box-shadow:0 0 0 2px #1c254133; }
+  .cand .cost { font-weight:600; }
+  .cand .ops { color:#495057; margin:4px 0; }
+  .cand .owners { color:#862e9c; font-size:12px; }
+  .cand .paths { color:#2b8a3e; font-size:12px; }
+  .badge { font-size:11px; padding:1px 6px; border-radius:8px; margin-left:6px; }
+  .badge.ok { background:#d3f9d8; color:#2b8a3e; }
+  .badge.hist { background:#ffe3e3; color:#c92a2a; }
+  button { font-size:12px; padding:4px 10px; border-radius:4px; border:1px solid #adb5bd;
+           background:#fff; cursor:pointer; margin-right:6px; }
+  button.primary { background:#1c2541; color:#fff; border-color:#1c2541; }
+  input, select { font-size:12px; padding:3px 6px; }
+  #opinions li { font-size:12px; margin-bottom:4px; }
+  h3 { margin:0 0 8px; font-size:14px; }
+  svg { width:100%; height:560px; background:#fafbfc; border-radius:6px; }
+  .edge { stroke-width:1.6; fill:none; }
+  .edge.hard { stroke:var(--hard); } .edge.runtime { stroke:var(--runtime); }
+  .edge.test { stroke:var(--test); } .edge.generated { stroke:var(--generated); }
+  .edge.cut { stroke:#c92a2a; stroke-width:3; stroke-dasharray:6 4; }
+  .edge.reach { stroke:#2b8a3e; stroke-width:3; }
+  .node circle { fill:#fff; stroke:#1c2541; stroke-width:1.5; }
+  .node.incycle circle { stroke:#c92a2a; stroke-width:2.5; }
+  .node text { font-size:11px; text-anchor:middle; }
+  .node .owner { font-size:9px; fill:#868e96; }
+  .scc-halo { fill:#c92a2a0d; stroke:#c92a2a55; stroke-dasharray:4 3; rx:16; }
+  .edge-label { font-size:9px; fill:#868e96; }
+</style>
+</head>
+<body>
+<header>
+  <h1>依赖环协商器</h1>
+  <span class="meta" id="meta">加载中…</span>
+</header>
+<main>
+  <div class="panel" id="graph-panel">
+    <h3>强连通分量视图</h3>
+    <div class="types" id="types"></div>
+    <svg id="svg" viewBox="0 0 900 560"></svg>
+  </div>
+  <div id="side">
+    <div class="panel">
+      <h3>候选变更集（点击高亮切断的环路与仍可达路径）</h3>
+      <div id="cands"></div>
+    </div>
+    <div class="panel">
+      <h3>负责人意见</h3>
+      <div style="margin-bottom:8px">
+        <input id="owner" placeholder="负责人" size="8">
+        <input id="comment" placeholder="意见说明" size="14">
+        <input id="alt" placeholder="替代边 src->tgt (可选)" size="16">
+      </div>
+      <div>
+        <button class="primary" onclick="opine('accept')">接受</button>
+        <button onclick="opine('reject')">拒绝</button>
+        <button onclick="opine('propose')">提出替代边</button>
+        <button class="primary" onclick="finalize()">定为最终选择</button>
+      </div>
+      <ul id="opinions"></ul>
+      <div id="selection" style="font-size:12px"></div>
+    </div>
+  </div>
+</main>
+<script>
+let STATE = null, SELECTED = null, POS = {};
+
+const TYPE_COLORS = {hard:'#d6336c', runtime:'#e8890c', test:'#1971c2', generated:'#868e96'};
+
+async function api(path, body) {
+  const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'},
+                               body: JSON.stringify(body||{})});
+  const j = await r.json();
+  if (!r.ok) { alert(j.error || 'error'); throw new Error(j.error); }
+  return j;
+}
+async function refresh() {
+  STATE = await (await fetch('/api/state')).json();
+  render();
+}
+function analysis() { return STATE.analysis ? STATE.analysis.result : null; }
+
+function render() {
+  document.getElementById('meta').textContent =
+    `图版本 v${STATE.graph_version} · 分析版本 a${STATE.analysis?STATE.analysis.version:0}`;
+  renderTypes(); layout(); renderGraph(); renderCandidates(); renderOpinions();
+}
+
+function renderTypes() {
+  const el = document.getElementById('types');
+  el.innerHTML = '分析视图包含类型: ' + STATE.edge_types.map(t =>
+    `<label><span class="dot" style="background:${TYPE_COLORS[t]}"></span>` +
+    `<input type="checkbox" ${STATE.view.types.includes(t)?'checked':''} ` +
+    `onchange="toggleType('${t}')">${t}</label>`).join('');
+}
+async function toggleType(t) {
+  const cur = new Set(STATE.view.types);
+  cur.has(t) ? cur.delete(t) : cur.add(t);
+  if (cur.size === 0) return;
+  await api('/api/view', {types:[...cur]});
+  SELECTED = null; refresh();
+}
+
+function layout() {
+  POS = {};
+  const a = analysis();
+  const sccs = a ? a.sccs : [];
+  const inScc = new Set(sccs.flat());
+  const nodes = STATE.graph ? STATE.graph.components.map(c=>c.id) : [];
+  const singles = nodes.filter(n=>!inScc.has(n));
+  sccs.forEach((scc, i) => {
+    const cx = 230 + (i%2)*430, cy = 160 + Math.floor(i/2)*230;
+    const r = 60 + scc.length*14;
+    scc.forEach((n, j) => {
+      const ang = 2*Math.PI*j/scc.length - Math.PI/2;
+      POS[n] = {x: cx + r*Math.cos(ang), y: cy + r*Math.sin(ang), scc: i, r};
+    });
+    POS['scc'+i] = {cx, cy, r: r+34};
+  });
+  singles.forEach((n, i) => { POS[n] = {x: 120 + i*130, y: 500}; });
+}
+
+function renderGraph() {
+  const svg = document.getElementById('svg');
+  const a = analysis();
+  const cut = new Set(), reach = new Set();
+  if (SELECTED) {
+    SELECTED.cut_edges.forEach(e=>cut.add(e));
+    SELECTED.affected_paths.forEach(p => {
+      for (let i=0;i<p.path.length-1;i++) {
+        (STATE.graph.edges||[]).forEach(e => {
+          if (e.source===p.path[i] && e.target===p.path[i+1]) reach.add(e.id);
+        });
+      }
+    });
+  }
+  let s = `<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3"
+     orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#868e96"/></marker></defs>`;
+  (a?a.sccs:[]).forEach((scc,i) => {
+    const h = POS['scc'+i];
+    s += `<rect class="scc-halo" x="${h.cx-h.r}" y="${h.cy-h.r}" width="${2*h.r}" height="${2*h.r}" rx="18"/>`;
+  });
+  const seen = {};
+  (STATE.graph?STATE.graph.edges:[]).forEach(e => {
+    const p1 = POS[e.source], p2 = POS[e.target];
+    if (!p1 || !p2) return;
+    let cls = `edge ${e.type}`;
+    if (cut.has(e.id)) cls += ' cut'; else if (reach.has(e.id)) cls += ' reach';
+    if (e.source === e.target) {
+      s += `<path class="${cls}" marker-end="url(#arr)" d="M ${p1.x} ${p1.y-16}
+            a 14 14 0 1 1 14 14"/>`;
+      return;
+    }
+    const k = [e.source,e.target].sort().join('|');
+    seen[k] = (seen[k]||0)+1;
+    const off = (seen[k]%2? 1:-1) * Math.ceil(seen[k]/2) * 18;
+    const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;
+    const dx = p2.x-p1.x, dy = p2.y-p1.y, len = Math.hypot(dx,dy)||1;
+    const nx = -dy/len*off, ny = dx/len*off;
+    s += `<path class="${cls}" marker-end="url(#arr)"
+          d="M ${p1.x} ${p1.y} Q ${mx+nx} ${my+ny} ${p2.x} ${p2.y}"/>`;
+    s += `<text class="edge-label" x="${mx+nx}" y="${my+ny-3}">${e.id}:${e.type}</text>`;
+  });
+  Object.keys(POS).filter(k=>!k.startsWith('scc')).forEach(n => {
+    const p = POS[n];
+    const comp = STATE.graph.components.find(c=>c.id===n) || {};
+    const incycle = p.scc !== undefined;
+    s += `<g class="node ${incycle?'incycle':''}">
+      <circle cx="${p.x}" cy="${p.y}" r="17"/>
+      <text x="${p.x}" y="${p.y+1}">${n}</text>
+      <text class="owner" x="${p.x}" y="${p.y+12}">${comp.owner||''}</text></g>`;
+  });
+  svg.innerHTML = s;
+}
+
+function opText(op) {
+  const e = STATE.graph.edges.find(x=>x.id===op.edge) || {};
+  const nm = `${e.source}→${e.target}`;
+  if (op.kind==='downgrade') return `降级 ${nm} (${e.type}→${op.to})`;
+  if (op.kind==='reverse') return `反转 ${nm}`;
+  return `引入接口边 ${e.source}→${op.interface} (替代 ${nm})`;
+}
+
+function renderCandidates() {
+  const el = document.getElementById('cands');
+  const a = analysis();
+  if (!a || !a.candidates.length) {
+    el.innerHTML = a ? '当前视图无环，或无合法拆分。' : '尚未加载图。';
+    return;
+  }
+  el.innerHTML = a.candidates.map(c => `
+    <div class="cand ${SELECTED&&SELECTED.id===c.id?'sel':''}" onclick="select('${c.id}')">
+      <span class="cost">${c.id} · 成本 ${c.cost}</span>
+      <span class="badge ${c.verifies?'ok':'hist'}">${c.verifies?'已机器校验: 应用后无环':'校验失败'}</span>
+      <div class="ops">${c.ops.map(opText).join('；')}</div>
+      <div class="owners">需负责人确认: ${c.owners.join(', ')}</div>
+      <div class="paths">${c.affected_paths.length ?
+        '仍可达路径: ' + c.affected_paths.map(p=>p.path.join('→')).join('；') :
+        '无残留可达路径'}</div>
+    </div>`).join('');
+}
+function select(id) {
+  const a = analysis();
+  SELECTED = a.candidates.find(c=>c.id===id);
+  renderGraph(); renderCandidates();
+}
+
+async function opine(action) {
+  if (!SELECTED) return alert('请先选择一个候选');
+  const owner = document.getElementById('owner').value.trim() || 'anonymous';
+  const alt = document.getElementById('alt').value.trim();
+  await api('/api/opinion', {candidate_id: SELECTED.id, owner, action,
+    comment: document.getElementById('comment').value,
+    alternative_edge: alt || null});
+  refresh();
+}
+async function finalize() {
+  if (!SELECTED) return alert('请先选择一个候选');
+  const by = document.getElementById('owner').value.trim() || 'anonymous';
+  await api('/api/select', {candidate_id: SELECTED.id, by});
+  refresh();
+}
+function renderOpinions() {
+  document.getElementById('opinions').innerHTML = STATE.opinions.map(o =>
+    `<li>#${o.seq} ${o.owner} (v${o.owner_version}) ${o.action} → ${o.candidate_id}` +
+    `${o.alternative_edge? ' 替代边 '+o.alternative_edge:''}` +
+    `${o.comment? ' · '+o.comment:''}` +
+    `<span class="badge ${o.status==='current'?'ok':'hist'}">${o.status==='current'?'有效':'历史'}</span></li>`
+  ).join('');
+  const s = STATE.selection;
+  document.getElementById('selection').innerHTML = s ?
+    `最终选择: ${s.candidate_id} (by ${s.by}) <span class="badge ${s.status==='current'?'ok':'hist'}">${s.status==='current'?'有效':'已失效·仅历史'}</span>` : '';
+}
+refresh();
+</script>
+</body>
+</html>

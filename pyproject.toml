@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=42,<64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cycleaccord"
+version = "0.1.0"
+description = "依赖环协商器: dependency-cycle negotiation tool"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["cycleaccord*"]
