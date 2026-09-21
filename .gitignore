@@ -34,3 +34,9 @@ coverage/
 .vite/
 .turbo/
 *.tsbuildinfo
+
+# 运行时数据库
+*.db
+*.db-shm
+*.db-wal
+*.egg-info

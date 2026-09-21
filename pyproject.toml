@@ -1,0 +1,23 @@
+[build-system]
+# 固定到仍提供 setup.py develop 的版本，兼容 python3 -m venv 自带的 pip 21.2。
+requires = ["setuptools>=61,<64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cycleaccord"
+version = "0.1.0"
+description = "依赖环协商器：强连通分量分析、可校验的拆环候选、版本化意见与批准"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+cycleaccord = "cycleaccord.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cycleaccord = ["static/*"]

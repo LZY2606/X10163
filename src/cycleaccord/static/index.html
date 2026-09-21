@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>依赖环协商器</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>依赖环协商器</h1>
+  <div class="topbar-controls">
+    <label>视图包含：
+      <span id="typeFilters"></span>
+    </label>
+    <button id="analyzeBtn" type="button">按视图重新分析</button>
+    <button id="importBtn" type="button" class="secondary">导入图 JSON</button>
+    <span class="version" id="graphVersion"></span>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel graph-panel">
+    <div class="panel-head">
+      <h2>强连通分量</h2>
+      <div class="legend">
+        <span class="lg lg-cut"></span>被切断的回边
+        <span class="lg lg-reach"></span>仍可达路径
+        <span class="lg lg-dim"></span>被移除/视图外
+      </div>
+    </div>
+    <div id="statusBanner" class="banner hidden"></div>
+    <div id="graphWrap"><svg id="graphSvg" viewBox="0 0 1000 620"></svg></div>
+    <div id="cycleInfo" class="cycle-info">选择一个候选以高亮被切断的环路与仍可达路径。</div>
+  </section>
+
+  <aside class="panel side-panel">
+    <h2>候选变更集</h2>
+    <div id="candidateList" class="candidate-list"></div>
+
+    <div id="candidateDetail" class="candidate-detail hidden">
+      <h3>候选详情</h3>
+      <div id="detailMeta"></div>
+      <h4>边操作（可机器校验）</h4>
+      <pre id="detailOps"></pre>
+      <h4>为什么足够 / 影响路径 / 负责人</h4>
+      <ul id="detailRationale"></ul>
+      <div class="verify-row">
+        <button id="verifyBtn" type="button" class="secondary">重新机器校验无环</button>
+        <span id="verifyResult"></span>
+      </div>
+      <h4>负责人意见</h4>
+      <div class="opinion-form">
+        <input id="ownerName" type="text" placeholder="你的名字（负责人）">
+        <div class="opinion-buttons">
+          <button data-decision="accept" type="button" class="ok">接受</button>
+          <button data-decision="reject" type="button" class="bad">拒绝</button>
+          <button data-decision="propose" type="button" class="warn">提出替代边</button>
+          <button id="approveBtn" type="button">批准为最终选择</button>
+        </div>
+        <input id="commentText" type="text" placeholder="意见说明">
+        <input id="alternativeText" type="text" placeholder="替代边（propose 时必填，如 d2: core->gateway runtime）">
+      </div>
+      <div id="opinionList" class="opinion-list"></div>
+    </div>
+  </aside>
+</main>
+
+<dialog id="importDialog">
+  <form method="dialog" class="import-form">
+    <h3>导入图 JSON</h3>
+    <p class="hint">导入会创建新的图版本；旧分析与批准保留为历史并自动标记失效。</p>
+    <textarea id="importText" rows="18" spellcheck="false"></textarea>
+    <div class="dialog-actions">
+      <button value="cancel" class="secondary" type="submit">取消</button>
+      <button id="importConfirm" value="default" type="button">导入新版本</button>
+    </div>
+    <div id="importError" class="error"></div>
+  </form>
+</dialog>
+
+<script src="/app.js"></script>
+</body>
+</html>
