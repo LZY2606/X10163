@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>依赖环协商器</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header>
+  <h1>依赖环协商器</h1>
+  <div class="meta">
+    <span>图版本：<b id="graph-version">-</b></span>
+    <span id="graph-note"></span>
+  </div>
+</header>
+
+<main>
+  <section class="panel controls">
+    <div class="row">
+      <span class="label">分析视图（包含的依赖类型，原图不变）：</span>
+      <label><input type="checkbox" class="type-toggle" value="hard" checked /> hard</label>
+      <label><input type="checkbox" class="type-toggle" value="runtime" checked /> runtime</label>
+      <label><input type="checkbox" class="type-toggle" value="test" checked /> test</label>
+      <label><input type="checkbox" class="type-toggle" value="generated" /> generated</label>
+      <button id="btn-analyze">重新计算强连通分量</button>
+    </div>
+    <div class="row">
+      <details>
+        <summary>导入新图（JSON；新版本会使旧批准变为历史）</summary>
+        <textarea id="import-json" rows="6" placeholder='{"components":[...],"edges":[...],"interfaces":[...]}'></textarea>
+        <button id="btn-import">导入为新版本</button>
+      </details>
+    </div>
+    <div id="banner" class="banner hidden"></div>
+  </section>
+
+  <div class="columns">
+    <section class="panel">
+      <h2>当前强连通分量</h2>
+      <div id="scc-summary" class="scc-summary"></div>
+      <svg id="graph" viewBox="0 0 900 560" role="img" aria-label="依赖图"></svg>
+      <div class="legend">
+        <span class="dot scc0"></span> SCC 0
+        <span class="dot scc1"></span> SCC 1
+        <span class="dot scc2"></span> SCC 2
+        <span class="dot ordinary"></span> 普通组件
+        <span class="line-cut">┄┄</span> 被切断的环路边
+        <span class="line-reach">━</span> 仍可达路径
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>打破全部环的候选变更集</h2>
+      <div id="candidate-list" class="candidate-list"></div>
+    </section>
+  </div>
+
+  <section class="panel" id="detail-panel" hidden>
+    <h2>候选详情</h2>
+    <div id="candidate-detail"></div>
+    <div class="columns two">
+      <div>
+        <h3>负责人协商</h3>
+        <div class="opinion-form">
+          <input id="opinion-author" placeholder="你的名字（负责人）" />
+          <div class="row">
+            <button class="opinion accept" data-kind="accept">接受</button>
+            <button class="opinion reject" data-kind="reject">拒绝</button>
+            <button class="opinion alternative" data-kind="alternative">提出替代边</button>
+          </div>
+          <input id="opinion-comment" placeholder="意见说明（可选）" />
+          <textarea id="alternative-ops" rows="5"
+            placeholder='替代边操作 JSON，例如 [{"op":"reverse","edge_id":"e4"}]（会机器校验：应用到图副本后必须无环）'></textarea>
+        </div>
+        <h3>意见版本（只追加，后写不覆盖先写）</h3>
+        <div id="opinion-list"></div>
+      </div>
+      <div>
+        <h3>最终选择（版本化批准）</h3>
+        <div class="row">
+          <input id="decide-by" placeholder="批准人" />
+          <button id="btn-decide">批准此候选</button>
+        </div>
+        <div id="decision-box"></div>
+        <h3>机器校验</h3>
+        <div id="verify-box"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

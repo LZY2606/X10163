@@ -1,0 +1,2 @@
+[console_scripts]
+cycleaccord = cycleaccord.__main__:main

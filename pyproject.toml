@@ -1,0 +1,12 @@
+[project]
+name = "cycleaccord"
+version = "0.1.0"
+description = "Dependency cycle negotiator: SCC analysis, break-change candidates, versioned approvals"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[project.scripts]
+cycleaccord = "cycleaccord.__main__:main"

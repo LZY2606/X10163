@@ -1,0 +1,6 @@
+#!/Users/mac/pro/Pair-wiseGSB/pairwise-gsb-20260919-003312/workspace/1130/runs/A/work/.venv4/bin/python3
+import sys
+from cycleaccord.__main__ import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())
